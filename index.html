@@ -1,221 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BP & Pill Tracker</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; }
-    body { background: #0f172a; color: #f8fafc; padding: 12px; display: flex; justify-content: center; }
-    .app { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
-
-    /* Video Frame */
-    .cam-box { position: relative; width: 100%; height: 210px; border-radius: 12px; overflow: hidden; background: #000; }
-    video { width: 100%; height: 100%; object-fit: cover; }
-    .guide {
-      position: absolute; top: 15%; left: 10%; width: 80%; height: 70%;
-      border: 2px solid #38bdf8; border-radius: 8px; pointer-events: none;
-      display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px;
-      background: rgba(56, 189, 248, 0.08);
-    }
-    .guide span { font-size: 11px; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; }
-
-    /* Buttons */
-    button { border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
-    .btn-scan { background: #334155; color: #f8fafc; padding: 12px; font-size: 14px; width: 100%; }
-    .btn-pill { background: #0284c7; color: #fff; padding: 8px 12px; font-size: 12px; border-radius: 20px; }
-    .btn-save { background: #10b981; color: #fff; padding: 14px; font-size: 16px; width: 100%; }
-
-    /* Cards & Compact Grid */
-    .card { background: #1e293b; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .row { display: flex; justify-content: space-between; align-items: center; }
-    .title { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-
-    .grid { display: flex; gap: 8px; width: 100%; }
-    .field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: center; }
-    .field label { font-size: 11px; font-weight: bold; color: #94a3b8; }
-    .field input {
-      width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 6px;
-      color: #38bdf8; font-size: 20px; font-weight: bold; text-align: center; padding: 8px 0;
-    }
-
-    #status { font-size: 12px; text-align: center; color: #cbd5e1; min-height: 18px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f766e">
+<title>BP Logger</title>
+<style>
+  :root { --c:#0f766e; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; max-width: 480px; margin-inline: auto; background:#f4f7f6; color:#12211f; }
+  h1 { font-size: 1.3rem; margin: 0 0 12px; }
+  .card { background:#fff; border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 1px 4px #0001; }
+  button, .btn { width:100%; padding:16px; font-size:1.1rem; border:0; border-radius:12px; background:var(--c); color:#fff; font-weight:600; display:block; text-align:center; }
+  button.alt { background:#e2ece9; color:var(--c); }
+  button:disabled { opacity:.5; }
+  .row { display:flex; gap:10px; }
+  .row > div { flex:1; }
+  label { font-size:.8rem; color:#52645f; display:block; margin-bottom:4px; }
+  input[type=number], input[type=time] { width:100%; font-size:1.6rem; padding:10px; border:2px solid #cfdcd8; border-radius:10px; text-align:center; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .chips button { width:auto; flex:1; padding:12px; font-size:.95rem; }
+  #preview { width:100%; border-radius:10px; margin-bottom:10px; display:none; }
+  #msg { text-align:center; min-height:1.4em; font-weight:600; }
+  .hidden { display:none; }
+</style>
 </head>
 <body>
+<h1>🩺 BP Logger</h1>
 
-<div class="app">
-  <!-- Camera Box -->
-  <div class="cam-box">
-    <video id="v" playsinline autoplay muted></video>
-    <div class="guide"><span>Position numbers inside</span></div>
-  </div>
-
-  <button type="button" class="btn-scan" onclick="readScreen()">📸 Scan Display</button>
-  <div id="status">Point at your BP monitor and tap Scan.</div>
-
-  <!-- Validated Reading -->
-  <div class="card">
-    <div class="row">
-      <span class="title">Verify Numbers (Tap to Edit)</span>
-    </div>
-    <div class="grid">
-      <div class="field">
-        <label>SYS</label>
-        <input type="number" id="sys" placeholder="--">
-      </div>
-      <div class="field">
-        <label>DIA</label>
-        <input type="number" id="dia" placeholder="--">
-      </div>
-      <div class="field">
-        <label>PULSE</label>
-        <input type="number" id="pul" placeholder="--">
-      </div>
-    </div>
-  </div>
-
-  <!-- Tablet Tracker -->
-  <div class="card">
-    <div class="row">
-      <div>
-        <div class="title">Tablet Time</div>
-        <div id="medTxt" style="font-size: 14px; font-weight: 600; margin-top: 2px;">Not taken yet</div>
-      </div>
-      <button type="button" class="btn-pill" onclick="takeTablet()">💊 Took Tablet Now</button>
-    </div>
-  </div>
-
-  <!-- Save -->
-  <button type="button" class="btn-save" id="saveBtn" onclick="sendToSheet()">Save to Google Sheets</button>
+<div class="card">
+  <img id="preview" alt="Captured photo">
+  <label class="btn" for="cam">📷 Scan BP monitor</label>
+  <input id="cam" type="file" accept="image/*" capture="environment" hidden>
 </div>
 
-<!-- Hidden Canvas for frame processing -->
-<canvas id="c" style="display:none;"></canvas>
+<div id="confirm" class="card hidden">
+  <p style="margin-top:0"><b>Check the reading</b> – correct it if wrong:</p>
+  <div class="row">
+    <div><label>Systolic</label><input id="sys" type="number" inputmode="numeric"></div>
+    <div><label>Diastolic</label><input id="dia" type="number" inputmode="numeric"></div>
+    <div><label>Pulse</label><input id="pul" type="number" inputmode="numeric"></div>
+  </div>
+
+  <p><b>Tablet taken at</b></p>
+  <input id="tab" type="time">
+  <div class="chips">
+    <button class="alt" id="now">Just now</button>
+    <button class="alt" id="m30">30 min ago</button>
+    <button class="alt" id="h1">1 hr ago</button>
+    <button class="alt" id="none">Not taken</button>
+  </div>
+
+  <button id="save" style="margin-top:16px">✅ Looks right – Save</button>
+  <button class="alt" id="retake" style="margin-top:10px">Retake photo</button>
+</div>
+
+<div id="msg"></div>
 
 <script>
-  // 1. REPLACE WITH YOUR DEPLOYED APPS SCRIPT URL:
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTMQrxLQvs6hNiSySp5j2YlGrL2QEdAsLhDzsKMlMFHdktyEGRXXzm9wwfr1K45YMrzw/exec";
+// >>> PASTE YOUR APPS SCRIPT WEB APP URL HERE <<<
+const API = 'https://script.google.com/macros/s/AKfycbw47VKmQCFuap_3Lu8nwRt_utrtr_nrfkLnBheHChYSpJnYy68F5IV700Hn-8P-zNFenA/exec';
 
-  let medTakenTime = "";
-  const v = document.getElementById('v');
-  const c = document.getElementById('c');
-  const stat = document.getElementById('status');
+const $ = id => document.getElementById(id);
+let tabletNone = false;
 
-  // Launch rear camera
-  navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
-    audio: false
-  }).then(s => v.srcObject = s).catch(e => stat.innerText = "Camera error: " + e.message);
+function hhmm(d) { return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+function setTablet(minAgo) { tabletNone = false; $('tab').value = hhmm(new Date(Date.now() - minAgo*60000)); }
+$('now').onclick = () => setTablet(0);
+$('m30').onclick = () => setTablet(30);
+$('h1').onclick  = () => setTablet(60);
+$('none').onclick = () => { tabletNone = true; $('tab').value = ''; };
+$('tab').oninput = () => tabletNone = false;
 
-  function takeTablet() {
-    medTakenTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('medTxt').innerText = "Logged: " + medTakenTime;
-  }
+async function post(body) {
+  const r = await fetch(API, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(body) });
+  return r.json();
+}
 
-  // Scan function using native system TextDetector if present, or fast multi-pass parsing
-  async function readScreen() {
-    stat.innerText = "Scanning monitor...";
-    
-    c.width = v.videoWidth || 640;
-    c.height = v.videoHeight || 480;
-    const ctx = c.getContext('2d');
-    ctx.drawImage(v, 0, 0);
+// Shrink photo so upload is fast
+function toJpegBase64(file, maxW = 1280) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, maxW / img.width);
+      const c = document.createElement('canvas');
+      c.width = img.width * s; c.height = img.height * s;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const url = c.toDataURL('image/jpeg', 0.85);
+      res({ url, b64: url.split(',')[1] });
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
 
-    // Use native mobile OCR if available (built into Android Chrome & iOS Safari)
-    if ('TextDetector' in window) {
-      try {
-        const detector = new window.TextDetector();
-        const detected = await detector.detect(c);
-        const raw = detected.map(d => d.rawValue).join(' ');
-        parseNumbers(raw);
-        return;
-      } catch (err) {
-        // Fall back below if detector fails
-      }
-    }
+$('cam').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  $('msg').textContent = 'Reading display…';
+  $('confirm').classList.add('hidden');
+  const { url, b64 } = await toJpegBase64(f);
+  $('preview').src = url; $('preview').style.display = 'block';
+  try {
+    const r = await post({ action:'read', image:b64 });
+    if (r.error) throw new Error(r.error);
+    $('sys').value = r.systolic ?? ''; $('dia').value = r.diastolic ?? ''; $('pul').value = r.pulse ?? '';
+    setTablet(0);
+    $('confirm').classList.remove('hidden');
+    $('msg').textContent = (r.systolic && r.diastolic) ? '' : '⚠️ Could not read all values – please type them in.';
+  } catch (err) { $('msg').textContent = '❌ ' + err.message; }
+  e.target.value = '';
+};
 
-    // Dynamic fallback: Load CDN worker with segment-aware whitelist
-    if (!window.Tesseract) {
-      const script = document.createElement('script');
-      script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
-      document.head.appendChild(script);
-      await new Promise(res => script.onload = res);
-    }
+$('retake').onclick = () => $('cam').click();
 
-    try {
-      const worker = await Tesseract.createWorker('eng');
-      await worker.setParameters({
-        tessedit_char_whitelist: '0123456789 ',
-        tessedit_pageseg_mode: '6' // Assume single uniform block of text
-      });
-      const { data: { text } } = await worker.recognize(c);
-      await worker.terminate();
-
-      parseNumbers(text);
-    } catch (e) {
-      stat.innerText = "Could not scan automatically. Please enter numbers manually.";
-    }
-  }
-
-  function parseNumbers(str) {
-    // Extract any 2 or 3 digit numbers
-    const nums = (str.match(/\b\d{2,3}\b/g) || []).map(Number).filter(n => n >= 35 && n <= 250);
-    
-    if (nums.length >= 2) {
-      let sys = Math.max(nums[0], nums[1]);
-      let dia = Math.min(nums[0], nums[1]);
-      let pul = nums[2] || "";
-
-      document.getElementById('sys').value = sys;
-      document.getElementById('dia').value = dia;
-      document.getElementById('pul').value = pul;
-      stat.innerText = "Values filled! Verify them before saving.";
-    } else {
-      stat.innerText = "Digits were blurry or unread. Please type them in directly.";
-    }
-  }
-
-  // Reliable, CORS-free transmission to Google Sheets
-  function sendToSheet() {
-    const sys = document.getElementById('sys').value;
-    const dia = document.getElementById('dia').value;
-    const pul = document.getElementById('pul').value;
-
-    if (!sys || !dia) {
-      alert("Please enter both Systolic and Diastolic numbers.");
-      return;
-    }
-
-    stat.innerText = "Sending to Google Sheets...";
-    document.getElementById('saveBtn').disabled = true;
-
-    // Use URLSearchParams + standard POST form format (Google Apps Script always accepts this)
-    const formData = new URLSearchParams();
-    formData.append("timestamp", new Date().toLocaleString());
-    formData.append("systolic", sys);
-    formData.append("diastolic", dia);
-    formData.append("pulse", pul);
-    formData.append("medicationTime", medTakenTime || "Not logged");
-
-    fetch(SCRIPT_URL, {
-      method: "POST",
-      body: formData
-    })
-    .then(() => {
-      stat.innerText = "Successfully written to Google Sheets!";
-      document.getElementById('sys').value = "";
-      document.getElementById('dia').value = "";
-      document.getElementById('pul').value = "";
-      alert("Row added to your Google Sheet!");
-    })
-    .catch(err => {
-      stat.innerText = "Error saving: " + err.message;
-    })
-    .finally(() => {
-      document.getElementById('saveBtn').disabled = false;
-    });
-  }
+$('save').onclick = async () => {
+  if (!$('sys').value || !$('dia').value) { $('msg').textContent = 'Enter systolic and diastolic.'; return; }
+  $('save').disabled = true; $('msg').textContent = 'Saving…';
+  try {
+    const r = await post({ action:'save', systolic:+$('sys').value, diastolic:+$('dia').value,
+      pulse:+$('pul').value || '', tablet: tabletNone ? 'Not taken' : $('tab').value });
+    if (r.error) throw new Error(r.error);
+    $('msg').textContent = '✅ Saved to sheet';
+    $('confirm').classList.add('hidden'); $('preview').style.display = 'none';
+  } catch (err) { $('msg').textContent = '❌ ' + err.message; }
+  $('save').disabled = false;
+};
 </script>
 </body>
 </html>
