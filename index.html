@@ -3,370 +3,218 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BP & Medication Tracker</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <title>BP & Pill Tracker</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    body {
-      background-color: #0f172a;
-      color: #f8fafc;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      overflow-x: hidden;
-      width: 100vw;
-    }
-    .container {
-      width: 100%;
-      max-width: 420px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    
-    /* Viewfinder */
-    .camera-wrapper {
-      position: relative;
-      width: 100%;
-      height: 230px;
-      border-radius: 14px;
-      overflow: hidden;
-      background: #000;
-    }
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .overlay-frame {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 80%;
-      height: 65%;
-      border: 2px dashed #38bdf8;
-      border-radius: 10px;
-      pointer-events: none;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding-bottom: 4px;
-      background: rgba(56, 189, 248, 0.04);
-    }
-    .overlay-frame span {
-      font-size: 11px;
-      color: #38bdf8;
-      background: rgba(0,0,0,0.7);
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-    
-    /* Buttons */
-    button {
-      cursor: pointer;
-      border: none;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 14px;
-      transition: opacity 0.2s;
-    }
-    button:active { opacity: 0.8; }
-    .btn-secondary { background: #334155; color: #f8fafc; padding: 12px; width: 100%; }
-    .btn-primary { background: #059669; color: #fff; padding: 13px; width: 100%; font-size: 15px; }
-    .btn-pill { background: #0284c7; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; padding: 12px; display: flex; justify-content: center; }
+    .app { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
 
-    /* Cards */
-    .card {
-      background: #1e293b;
-      padding: 14px;
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: 100%;
+    /* Video Frame */
+    .cam-box { position: relative; width: 100%; height: 210px; border-radius: 12px; overflow: hidden; background: #000; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .guide {
+      position: absolute; top: 15%; left: 10%; width: 80%; height: 70%;
+      border: 2px solid #38bdf8; border-radius: 8px; pointer-events: none;
+      display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px;
+      background: rgba(56, 189, 248, 0.08);
     }
-    .row-between { display: flex; justify-content: space-between; align-items: center; }
-    .label { font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
-    
-    /* Fully responsive, non-overflowing inputs */
-    .inputs-grid {
-      display: flex;
-      gap: 8px;
-      width: 100%;
+    .guide span { font-size: 11px; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; }
+
+    /* Buttons */
+    button { border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn-scan { background: #334155; color: #f8fafc; padding: 12px; font-size: 14px; width: 100%; }
+    .btn-pill { background: #0284c7; color: #fff; padding: 8px 12px; font-size: 12px; border-radius: 20px; }
+    .btn-save { background: #10b981; color: #fff; padding: 14px; font-size: 16px; width: 100%; }
+
+    /* Cards & Compact Grid */
+    .card { background: #1e293b; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .row { display: flex; justify-content: space-between; align-items: center; }
+    .title { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+
+    .grid { display: flex; gap: 8px; width: 100%; }
+    .field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: center; }
+    .field label { font-size: 11px; font-weight: bold; color: #94a3b8; }
+    .field input {
+      width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+      color: #38bdf8; font-size: 20px; font-weight: bold; text-align: center; padding: 8px 0;
     }
-    .input-box {
-      flex: 1 1 0;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .input-box label {
-      font-size: 10px;
-      color: #94a3b8;
-      font-weight: 700;
-      text-align: center;
-      white-space: nowrap;
-    }
-    .input-box input {
-      width: 100%;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      color: #38bdf8;
-      font-size: 18px;
-      font-weight: bold;
-      text-align: center;
-      padding: 8px 4px;
-    }
-    .input-box input:focus { border-color: #38bdf8; outline: none; }
-    
-    .status-text {
-      font-size: 12px;
-      text-align: center;
-      color: #e2e8f0;
-      line-height: 1.4;
-      padding: 0 4px;
-    }
-    .debug-text {
-      font-size: 10px;
-      color: #64748b;
-      word-break: break-all;
-      text-align: center;
-    }
+
+    #status { font-size: 12px; text-align: center; color: #cbd5e1; min-height: 18px; }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <!-- Camera Viewfinder -->
-  <div class="camera-wrapper">
-    <video id="video" playsinline autoplay muted></video>
-    <div class="overlay-frame"><span>Fit BP display inside box</span></div>
+<div class="app">
+  <!-- Camera Box -->
+  <div class="cam-box">
+    <video id="v" playsinline autoplay muted></video>
+    <div class="guide"><span>Position numbers inside</span></div>
   </div>
 
-  <button class="btn-secondary" id="scanBtn" onclick="captureAndOCR()">📸 Scan Reading</button>
-  <div class="status-text" id="statusMessage">Camera ready. Align numbers inside the box & tap Scan.</div>
+  <button type="button" class="btn-scan" onclick="readScreen()">📸 Scan Display</button>
+  <div id="status">Point at your BP monitor and tap Scan.</div>
 
-  <!-- Validated Inputs -->
+  <!-- Validated Reading -->
   <div class="card">
-    <div class="row-between">
-      <span class="label">Reading (Tap to edit)</span>
-      <span id="ocrBadge" style="font-size:11px; color:#10b981; display:none;">✓ Numbers Found</span>
+    <div class="row">
+      <span class="title">Verify Numbers (Tap to Edit)</span>
     </div>
-
-    <div class="inputs-grid">
-      <div class="input-box">
+    <div class="grid">
+      <div class="field">
         <label>SYS</label>
-        <input type="number" id="sysInput" placeholder="--">
+        <input type="number" id="sys" placeholder="--">
       </div>
-      <div class="input-box">
+      <div class="field">
         <label>DIA</label>
-        <input type="number" id="diaInput" placeholder="--">
+        <input type="number" id="dia" placeholder="--">
       </div>
-      <div class="input-box">
+      <div class="field">
         <label>PULSE</label>
-        <input type="number" id="pulInput" placeholder="--">
+        <input type="number" id="pul" placeholder="--">
       </div>
     </div>
-    <div class="debug-text" id="rawOcrText"></div>
   </div>
 
-  <!-- Medication Log -->
+  <!-- Tablet Tracker -->
   <div class="card">
-    <div class="row-between">
+    <div class="row">
       <div>
-        <div class="label">Medication Log</div>
-        <div id="medTimeDisplay" style="font-weight:600; margin-top:2px; font-size:14px;">Not recorded yet</div>
+        <div class="title">Tablet Time</div>
+        <div id="medTxt" style="font-size: 14px; font-weight: 600; margin-top: 2px;">Not taken yet</div>
       </div>
-      <button class="btn-pill" onclick="logMedNow()">💊 Took Now</button>
+      <button type="button" class="btn-pill" onclick="takeTablet()">💊 Took Tablet Now</button>
     </div>
   </div>
 
-  <!-- Save Button -->
-  <button class="btn-primary" id="saveBtn" onclick="saveToSheets()">Save to Google Sheets</button>
+  <!-- Save -->
+  <button type="button" class="btn-save" id="saveBtn" onclick="sendToSheet()">Save to Google Sheets</button>
 </div>
 
-<!-- Offscreen canvas for cropping and contrast filter -->
-<canvas id="cropCanvas" style="display:none;"></canvas>
+<!-- Hidden Canvas for frame processing -->
+<canvas id="c" style="display:none;"></canvas>
 
 <script>
-  // Paste your Apps Script URL here
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTMQrxLQvs6hNiSySp5j2YlGrL2QEdAsLhDzsKMlMFHdktyEGRXXzm9wwfr1K45YMrzw/exec";
+  // 1. REPLACE WITH YOUR DEPLOYED APPS SCRIPT URL:
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTMQrxLQvs6hNiSySp5j2YlGrL2QEdAsLhDzsKMlMFHdktyEGRXXzm9wwfr1K45YMrzw/exec";
 
-  const video = document.getElementById('video');
-  const cropCanvas = document.getElementById('cropCanvas');
-  const statusMsg = document.getElementById('statusMessage');
-  const rawTextElem = document.getElementById('rawOcrText');
-  let medicationTimestamp = "";
+  let medTakenTime = "";
+  const v = document.getElementById('v');
+  const c = document.getElementById('c');
+  const stat = document.getElementById('status');
 
-  // Start back camera
+  // Launch rear camera
   navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: { ideal: "environment" },
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
-    },
+    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
     audio: false
-  }).then(stream => {
-    video.srcObject = stream;
-  }).catch(err => {
-    statusMsg.innerText = "Camera access denied: " + err.message;
-  });
+  }).then(s => v.srcObject = s).catch(e => stat.innerText = "Camera error: " + e.message);
 
-  function logMedNow() {
-    const now = new Date();
-    medicationTimestamp = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('medTimeDisplay').innerText = `Logged at ${medicationTimestamp}`;
+  function takeTablet() {
+    medTakenTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('medTxt').innerText = "Logged: " + medTakenTime;
   }
 
-  async function captureAndOCR() {
-    if (!video.videoWidth || !video.videoHeight) {
-      statusMsg.innerText = "Waiting for camera to stabilize...";
-      return;
+  // Scan function using native system TextDetector if present, or fast multi-pass parsing
+  async function readScreen() {
+    stat.innerText = "Scanning monitor...";
+    
+    c.width = v.videoWidth || 640;
+    c.height = v.videoHeight || 480;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(v, 0, 0);
+
+    // Use native mobile OCR if available (built into Android Chrome & iOS Safari)
+    if ('TextDetector' in window) {
+      try {
+        const detector = new window.TextDetector();
+        const detected = await detector.detect(c);
+        const raw = detected.map(d => d.rawValue).join(' ');
+        parseNumbers(raw);
+        return;
+      } catch (err) {
+        // Fall back below if detector fails
+      }
     }
 
-    statusMsg.innerText = "Cropping display & enhancing digits...";
-    document.getElementById('scanBtn').disabled = true;
-
-    // 1. Crop only the center dashed box area
-    const vW = video.videoWidth;
-    const vH = video.videoHeight;
-    const cropWidth = Math.floor(vW * 0.80);
-    const cropHeight = Math.floor(vH * 0.65);
-    const startX = Math.floor((vW - cropWidth) / 2);
-    const startY = Math.floor((vH - cropHeight) / 2);
-
-    cropCanvas.width = cropWidth;
-    cropCanvas.height = cropHeight;
-    const ctx = cropCanvas.getContext('2d');
-
-    // Draw the cropped target area
-    ctx.drawImage(video, startX, startY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-
-    // 2. High-contrast threshold filter for digital LCD segments
-    const imgData = ctx.getImageData(0, 0, cropWidth, cropHeight);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      // Greyscale conversion
-      const brightness = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      // Adaptive threshold: separate dark digits from lighter LCD background
-      const val = brightness > 120 ? 255 : 0;
-      d[i] = val;
-      d[i + 1] = val;
-      d[i + 2] = val;
+    // Dynamic fallback: Load CDN worker with segment-aware whitelist
+    if (!window.Tesseract) {
+      const script = document.createElement('script');
+      script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+      document.head.appendChild(script);
+      await new Promise(res => script.onload = res);
     }
-    ctx.putImageData(imgData, 0, 0);
 
-    // 3. Run OCR on clean high-contrast image
     try {
-      statusMsg.innerText = "Reading numbers...";
       const worker = await Tesseract.createWorker('eng');
-      
-      // Look strictly for numbers and standard monitor keywords
       await worker.setParameters({
-        tessedit_char_whitelist: '0123456789/ \nSYSDIAPUL',
+        tessedit_char_whitelist: '0123456789 ',
+        tessedit_pageseg_mode: '6' // Assume single uniform block of text
       });
-
-      const { data: { text } } = await worker.recognize(cropCanvas);
+      const { data: { text } } = await worker.recognize(c);
       await worker.terminate();
 
-      rawTextElem.innerText = "Detected raw text: " + text.replace(/\n+/g, ' ').trim();
-      const found = parseExtractedText(text);
-
-      if (found) {
-        statusMsg.innerText = "Numbers detected! Verify or edit before saving.";
-        document.getElementById('ocrBadge').style.display = 'inline';
-      } else {
-        statusMsg.innerText = "Could not cleanly isolate 2 numbers. Tap boxes to type manually, or re-scan.";
-      }
-    } catch (err) {
-      statusMsg.innerText = "Scan failed: " + err.message;
-    } finally {
-      document.getElementById('scanBtn').disabled = false;
+      parseNumbers(text);
+    } catch (e) {
+      stat.innerText = "Could not scan automatically. Please enter numbers manually.";
     }
   }
 
-  function parseExtractedText(raw) {
-    let clean = raw.replace(/[OODo]/g, '0').replace(/[Il|!]/g, '1');
+  function parseNumbers(str) {
+    // Extract any 2 or 3 digit numbers
+    const nums = (str.match(/\b\d{2,3}\b/g) || []).map(Number).filter(n => n >= 35 && n <= 250);
+    
+    if (nums.length >= 2) {
+      let sys = Math.max(nums[0], nums[1]);
+      let dia = Math.min(nums[0], nums[1]);
+      let pul = nums[2] || "";
 
-    // Look for numbers between 35 and 260 (covers human BP and pulse ranges)
-    const matches = clean.match(/\b\d{2,3}\b/g) || [];
-    const validNumbers = matches
-      .map(n => parseInt(n, 10))
-      .filter(n => n >= 35 && n <= 260);
-
-    if (validNumbers.length >= 2) {
-      // Order: Systolic (highest), Diastolic (lower), Pulse (third)
-      const sortedByPos = [...validNumbers];
-      
-      let sys = sortedByPos[0];
-      let dia = sortedByPos[1];
-      let pul = sortedByPos[2] || "";
-
-      // Sanity check: Systolic is virtually always higher than Diastolic
-      if (sys < dia) {
-        const temp = sys;
-        sys = dia;
-        dia = temp;
-      }
-
-      document.getElementById('sysInput').value = sys;
-      document.getElementById('diaInput').value = dia;
-      document.getElementById('pulInput').value = pul;
-      return true;
+      document.getElementById('sys').value = sys;
+      document.getElementById('dia').value = dia;
+      document.getElementById('pul').value = pul;
+      stat.innerText = "Values filled! Verify them before saving.";
+    } else {
+      stat.innerText = "Digits were blurry or unread. Please type them in directly.";
     }
-    return false;
   }
 
-  async function saveToSheets() {
-    const sys = document.getElementById('sysInput').value;
-    const dia = document.getElementById('diaInput').value;
-    const pul = document.getElementById('pulInput').value;
+  // Reliable, CORS-free transmission to Google Sheets
+  function sendToSheet() {
+    const sys = document.getElementById('sys').value;
+    const dia = document.getElementById('dia').value;
+    const pul = document.getElementById('pul').value;
 
     if (!sys || !dia) {
-      alert("Please ensure both SYS and DIA values are filled in.");
+      alert("Please enter both Systolic and Diastolic numbers.");
       return;
     }
 
-    statusMsg.innerText = "Saving to Google Sheets...";
+    stat.innerText = "Sending to Google Sheets...";
     document.getElementById('saveBtn').disabled = true;
 
-    const payload = {
-      timestamp: new Date().toLocaleString(),
-      systolic: sys,
-      diastolic: dia,
-      pulse: pul || "",
-      medicationTime: medicationTimestamp || "Not logged"
-    };
+    // Use URLSearchParams + standard POST form format (Google Apps Script always accepts this)
+    const formData = new URLSearchParams();
+    formData.append("timestamp", new Date().toLocaleString());
+    formData.append("systolic", sys);
+    formData.append("diastolic", dia);
+    formData.append("pulse", pul);
+    formData.append("medicationTime", medTakenTime || "Not logged");
 
-    try {
-      await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      statusMsg.innerText = "Saved successfully to your sheet!";
-      document.getElementById('sysInput').value = "";
-      document.getElementById('diaInput').value = "";
-      document.getElementById('pulInput').value = "";
-      document.getElementById('ocrBadge').style.display = 'none';
-      rawTextElem.innerText = "";
-      alert("Reading added to Google Sheets!");
-    } catch (e) {
-      statusMsg.innerText = "Error submitting: " + e.message;
-    } finally {
+    fetch(SCRIPT_URL, {
+      method: "POST",
+      body: formData
+    })
+    .then(() => {
+      stat.innerText = "Successfully written to Google Sheets!";
+      document.getElementById('sys').value = "";
+      document.getElementById('dia').value = "";
+      document.getElementById('pul').value = "";
+      alert("Row added to your Google Sheet!");
+    })
+    .catch(err => {
+      stat.innerText = "Error saving: " + err.message;
+    })
+    .finally(() => {
       document.getElementById('saveBtn').disabled = false;
-    }
+    });
   }
 </script>
 </body>
