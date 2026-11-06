@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BP & Medication Tracker</title>
+  <!-- Load Tesseract.js for in-browser OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0f172a; color: #f8fafc; padding: 16px; display: flex; flex-direction: column; align-items: center; }
+    .container { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 16px; }
+    
+    /* Viewfinder */
+    .camera-wrapper { position: relative; width: 100%; height: 260px; border-radius: 16px; overflow: hidden; background: #000; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .overlay-frame {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 75%; height: 60%; border: 2px dashed #38bdf8; border-radius: 12px;
+      pointer-events: none; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px;
+    }
+    .overlay-frame span { font-size: 11px; color: #38bdf8; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; }
+    
+    /* Buttons & Controls */
+    button { cursor: pointer; border: none; border-radius: 10px; font-weight: 600; font-size: 14px; transition: opacity 0.2s; }
+    button:active { opacity: 0.8; }
+    .btn-secondary { background: #334155; color: #f8fafc; padding: 12px; width: 100%; }
+    .btn-primary { background: #059669; color: #fff; padding: 14px; width: 100%; font-size: 16px; }
+    .btn-pill { background: #0284c7; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; }
+
+    /* Card Panels */
+    .card { background: #1e293b; padding: 16px; border-radius: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .row-between { display: flex; justify-content: space-between; align-items: center; }
+    .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700; }
+    
+    /* Validation & Editable Inputs */
+    .inputs-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .input-box { display: flex; flex-direction: column; gap: 4px; }
+    .input-box label { font-size: 11px; color: #94a3b8; font-weight: 700; text-align: center; }
+    .input-box input {
+      background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+      color: #38bdf8; font-size: 20px; font-weight: bold; text-align: center; padding: 8px;
+    }
+    .input-box input:focus { border-color: #38bdf8; outline: none; }
+    
+    .status-text { font-size: 13px; text-align: center; color: #e2e8f0; min-height: 18px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Live Camera Viewfinder -->
+  <div class="camera-wrapper">
+    <video id="video" playsinline autoplay muted></video>
+    <div class="overlay-frame"><span>Align BP Screen Here</span></div>
+  </div>
+
+  <button class="btn-secondary" id="scanBtn" onclick="captureAndOCR()">📸 Scan Reading</button>
+  <div class="status-text" id="statusMessage">Camera ready. Tap Scan to capture.</div>
+
+  <!-- Validation & Confirmation Form -->
+  <div class="card">
+    <div class="row-between">
+      <span class="label">Verified Reading (Tap to edit)</span>
+      <span id="ocrBadge" style="font-size:11px; color:#10b981; display:none;">✓ Extracted</span>
+    </div>
+
+    <div class="inputs-grid">
+      <div class="input-box">
+        <label>SYS (mmHg)</label>
+        <input type="number" id="sysInput" placeholder="--">
+      </div>
+      <div class="input-box">
+        <label>DIA (mmHg)</label>
+        <input type="number" id="diaInput" placeholder="--">
+      </div>
+      <div class="input-box">
+        <label>PULSE (/min)</label>
+        <input type="number" id="pulInput" placeholder="--">
+      </div>
+    </div>
+  </div>
+
+  <!-- Medication Time Tracker -->
+  <div class="card">
+    <div class="row-between">
+      <div>
+        <div class="label">Medication Log</div>
+        <div id="medTimeDisplay" style="font-weight:600; margin-top:2px;">Not taken yet</div>
+      </div>
+      <button class="btn-pill" onclick="logMedNow()">💊 Took Tablet Now</button>
+    </div>
+  </div>
+
+  <!-- Final Save to Sheets -->
+  <button class="btn-primary" id="saveBtn" onclick="saveToSheets()">Save to Google Sheets</button>
+</div>
+
+<!-- Offscreen canvas for frame capture -->
+<canvas id="snapshotCanvas" style="display:none;"></canvas>
+
+<script>
+  // Replace with your Google Apps Script Web App URL from earlier
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTMQrxLQvs6hNiSySp5j2YlGrL2QEdAsLhDzsKMlMFHdktyEGRXXzm9wwfr1K45YMrzw/exec";
+
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('snapshotCanvas');
+  const statusMsg = document.getElementById('statusMessage');
+  let medicationTimestamp = "";
+
+  // Start mobile rear camera
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: "environment" } },
+    audio: false
+  }).then(stream => {
+    video.srcObject = stream;
+  }).catch(err => {
+    statusMsg.innerText = "Camera access denied or unavailable: " + err.message;
+  });
+
+  // 1-Tap Medication Logger
+  function logMedNow() {
+    const now = new Date();
+    medicationTimestamp = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('medTimeDisplay').innerText = `Logged at ${medicationTimestamp}`;
+  }
+
+  // Capture frame and extract digits using Tesseract
+  async function captureAndOCR() {
+    statusMsg.innerText = "Analyzing screen...";
+    document.getElementById('scanBtn').disabled = true;
+
+    // Draw frame to canvas
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    try {
+      const worker = await Tesseract.createWorker('eng');
+      await worker.setParameters({
+        tessedit_char_whitelist: '0123456789SYSDIAPULSE:'
+      });
+
+      const { data: { text } } = await worker.recognize(canvas);
+      await worker.terminate();
+
+      // Extract numbers
+      parseAndPopulate(text);
+      statusMsg.innerText = "Numbers detected! Review and edit if needed.";
+    } catch (err) {
+      statusMsg.innerText = "Scan error: " + err.message;
+    } finally {
+      document.getElementById('scanBtn').disabled = false;
+    }
+  }
+
+  function parseAndPopulate(raw) {
+    const sysMatch = raw.match(/(?:SYS|SYSTOLIC)[\s:]*(\d{2,3})/i);
+    const diaMatch = raw.match(/(?:DIA|DIASTOLIC)[\s:]*(\d{2,3})/i);
+    const pulMatch = raw.match(/(?:PUL|PULSE)[\s:]*(\d{2,3})/i);
+
+    let sys = sysMatch ? sysMatch[1] : null;
+    let dia = diaMatch ? diaMatch[1] : null;
+    let pul = pulMatch ? pulMatch[1] : null;
+
+    // Fallback: isolate bare 2-3 digit numbers
+    if (!sys || !dia) {
+      const numbers = (raw.match(/\b\d{2,3}\b/g) || []).map(n => parseInt(n, 10)).filter(n => n >= 40 && n <= 240);
+      if (numbers.length >= 2) {
+        sys = numbers[0];
+        dia = numbers[1];
+        pul = numbers[2] || "";
+      }
+    }
+
+    if (sys) document.getElementById('sysInput').value = sys;
+    if (dia) document.getElementById('diaInput').value = dia;
+    if (pul) document.getElementById('pulInput').value = pul;
+
+    if (sys && dia) {
+      document.getElementById('ocrBadge').style.display = 'inline';
+    }
+  }
+
+  // Send validated values to Google Sheets
+  async function saveToSheets() {
+    const sys = document.getElementById('sysInput').value;
+    const dia = document.getElementById('diaInput').value;
+    const pul = document.getElementById('pulInput').value;
+
+    if (!sys || !dia) {
+      alert("Please ensure both Systolic and Diastolic values are filled in.");
+      return;
+    }
+
+    statusMsg.innerText = "Submitting to Google Sheets...";
+    document.getElementById('saveBtn').disabled = true;
+
+    const payload = {
+      timestamp: new Date().toLocaleString(),
+      systolic: sys,
+      diastolic: dia,
+      pulse: pul || "",
+      medicationTime: medicationTimestamp || "Not logged"
+    };
+
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors", // Allows browser to hit Google Apps Script without CORS restriction
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      statusMsg.innerText = "Saved successfully to Google Sheets!";
+      document.getElementById('sysInput').value = "";
+      document.getElementById('diaInput').value = "";
+      document.getElementById('pulInput').value = "";
+      document.getElementById('ocrBadge').style.display = 'none';
+      alert("Reading saved!");
+    } catch (e) {
+      statusMsg.innerText = "Failed to submit: " + e.message;
+    } finally {
+      document.getElementById('saveBtn').disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
